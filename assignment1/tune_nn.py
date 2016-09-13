@@ -83,11 +83,11 @@ if __name__ == '__main__':
     X_train, y_train, X_val, y_val, X_test, y_test = get_CIFAR10_data()
 
     hyperparams = dict(
-        hidden_size=[50, 80, 100, 150, 200, 300],
-        batch_size=[200, 400, 1000],
+        hidden_size=[50, 80, 100, 150, 200, 300, 600, 1000],
+        batch_size=[1000],
         reg=(10 ** np.linspace(-4, 4, 16)).tolist(),
-        learning_rate=[1e-5, 1e-4, 1e-3, 1e-2],
-        learning_rate_decay=np.linspace(0.7, 1, 6).tolist(),
+        learning_rate=(10 ** np.linspace(-5, -3, 5)).tolist(),
+        learning_rate_decay=np.linspace(0.6, 1, 8).tolist(),
     )
     keys = hyperparams.keys()
     hyperparam_list = [hyperparams[key] for key in keys]
@@ -95,7 +95,7 @@ if __name__ == '__main__':
     best_config = None
     best_accuracy = -1
 
-    with open('tune_results.txt', 'a') as flog:
+    with open('results.txt', 'a', 0) as flog:
         flog.write('============= {} =============\n'.format(datetime.datetime.now()))
 
         all_configs = list(itertools.product(*hyperparam_list))
@@ -119,11 +119,17 @@ if __name__ == '__main__':
                 best_config = config
                 best_accuracy = accuracy
 
+            flog.write('    Current best: ')
+
+            for i in xrange(len(keys)):
+                flog.write('{}: {},  '.format(keys[i], best_config[i]))
+            flog.write('accuracy: {}\n\n'.format(best_accuracy))
+
         flog.write('\n    Now showing the best:\n')
         flog.write('    ')
 
         for i in xrange(len(keys)):
-            flog.write('{}: {},  '.format(keys[i], config[i]))
+            flog.write('{}: {},  '.format(keys[i], best_config[i]))
 
         flog.write('accuracy: {}\n'.format(best_accuracy))
 
