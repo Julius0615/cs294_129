@@ -58,7 +58,8 @@ def evaluate_nn(X_train, y_train, X_val, y_val, n_epoch=10,
                     reg=0.5, learning_rate=1e-4,
                     learning_rate_decay=0.95)
                 ):
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    os.environ['GLOG_minloglevel'] = '2'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     import tensorflow as tf
     import tflearn
     # tf.reset_default_graph()
