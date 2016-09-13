@@ -1,12 +1,14 @@
 import itertools
 import datetime
+import os
+import multiprocessing
+import multiprocessing.queues
+
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 import numpy as np
 
-import tensorflow as tf
-import tflearn
 
-from cs294_129.classifiers.neural_net import TwoLayerNet
 from cs294_129.data_utils import load_CIFAR10
 
 
@@ -56,8 +58,12 @@ def evaluate_nn(X_train, y_train, X_val, y_val, n_epoch=10,
                     reg=0.5, learning_rate=1e-4,
                     learning_rate_decay=0.95)
                 ):
-    tf.reset_default_graph()
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    import tensorflow as tf
+    import tflearn
+    # tf.reset_default_graph()
     tflearn.init_graph()
+        # sess = tf.Session()
     net = tflearn.input_data(shape=[None, 3072])
     net = tflearn.fully_connected(
         net, tune_params['hidden_size'],
@@ -75,8 +81,32 @@ def evaluate_nn(X_train, y_train, X_val, y_val, n_epoch=10,
         batch_size=tune_params['batch_size']
     )
     model = tflearn.DNN(net)
-    model.fit(X_train, y_train, n_epoch=n_epoch, batch_size=tune_params['batch_size'])
-    return model.evaluate(X_val, y_val)[0]
+    model.fit(
+        X_train, y_train, n_epoch=n_epoch,
+        batch_size=tune_params['batch_size'], snapshot_epoch=False,
+        show_metric=False,
+    )
+    accuracy = model.evaluate(X_val, y_val)[0]
+        # sess.close()
+    return accuracy
+
+
+def evaluate_nn_process(result_queue, *args, **kwargs):
+    accuracy = evaluate_nn(*args, **kwargs)
+    result_queue.put(accuracy)
+
+
+def evaluate_nn_wrapped(*args, **kwargs):
+    result_queue = multiprocessing.queues.SimpleQueue()
+    process = multiprocessing.Process(
+        target=evaluate_nn_process,
+        args=tuple([result_queue] + list(args)),
+        kwargs=kwargs
+    )
+    process.start()
+    process.join()
+    return result_queue.get()
+
 
 
 if __name__ == '__main__':
@@ -112,7 +142,7 @@ if __name__ == '__main__':
 
             print 'Training:  {}/{}'.format(config_idx, len(all_configs))
             print param
-            accuracy = evaluate_nn(X_train, y_train, X_val, y_val, tune_params=param)
+            accuracy = evaluate_nn_wrapped(X_train, y_train, X_val, y_val, tune_params=param)
             flog.write('accuracy: {}\n'.format(accuracy))
 
             if accuracy > best_accuracy:
