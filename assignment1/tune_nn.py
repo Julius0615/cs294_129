@@ -4,7 +4,6 @@ import os
 import multiprocessing
 import multiprocessing.queues
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 import numpy as np
 
@@ -52,13 +51,12 @@ def get_CIFAR10_data(num_training=49000, num_validation=1000, num_test=1000):
     return X_train, one_hot_encode(y_train), X_val, one_hot_encode(y_val), X_test, one_hot_encode(y_test)
 
 
-def evaluate_nn(X_train, y_train, X_val, y_val, n_epoch=10,
+def evaluate_nn(X_train, y_train, X_val, y_val, n_epoch=20,
                 tune_params=dict(
                     hidden_size=50, batch_size=200,
                     reg=0.5, learning_rate=1e-4,
                     learning_rate_decay=0.95)
                 ):
-    os.environ['GLOG_minloglevel'] = '2'
     os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     import tensorflow as tf
     import tflearn
@@ -68,17 +66,21 @@ def evaluate_nn(X_train, y_train, X_val, y_val, n_epoch=10,
     net = tflearn.input_data(shape=[None, 3072])
     net = tflearn.fully_connected(
         net, tune_params['hidden_size'],
-        activation='relu', weight_decay=tune_params['reg']
+        activation='relu', weight_decay=tune_params['reg'],
+        weights_init=tflearn.initializations.truncated_normal(stddev=1e-4),
     )
-    net = tflearn.fully_connected(net, 10, activation='softmax', weight_decay=tune_params['reg'])
-    optimizer = tflearn.optimizers.SGD(
-        learning_rate=tune_params['learning_rate'],
-        lr_decay=tune_params['learning_rate_decay'],
-        decay_step=max(1, int(X_train.shape[0] / tune_params['batch_size'])),
-        staircase=True
+    net = tflearn.fully_connected(
+        net, 10, activation='softmax', weight_decay=tune_params['reg'],
+        weights_init=tflearn.initializations.truncated_normal(stddev=1e-4),
     )
+    # optimizer = tflearn.optimizers.SGD(
+    #    learning_rate=tune_params['learning_rate'],
+    #    lr_decay=tune_params['learning_rate_decay'],
+    #    decay_step=max(1, int(X_train.shape[0] / tune_params['batch_size'])),
+    #    staircase=True
+    # )
     net = tflearn.regression(
-        net, optimizer=optimizer, loss='categorical_crossentropy',
+        net, optimizer='adam', loss='categorical_crossentropy',
         batch_size=tune_params['batch_size']
     )
     model = tflearn.DNN(net)
@@ -114,11 +116,16 @@ if __name__ == '__main__':
     X_train, y_train, X_val, y_val, X_test, y_test = get_CIFAR10_data()
 
     hyperparams = dict(
-        hidden_size=[50, 80, 100, 150, 200, 300, 600, 1000],
-        batch_size=[1000],
-        reg=(10 ** np.linspace(-4, 4, 16)).tolist(),
-        learning_rate=(10 ** np.linspace(-5, -3, 5)).tolist(),
-        learning_rate_decay=np.linspace(0.6, 1, 8).tolist(),
+        # hidden_size=[50, 80, 100, 150, 200, 300, 600, 1000],
+        hidden_size=[60, 80, 100, 120],
+        # batch_size=[256, 512],
+        batch_size=[512],
+        reg=(10 ** np.linspace(-3, 3, 16)).tolist(),
+        # reg=[0.0464158883361],
+        # learning_rate=(10 ** np.linspace(-3, -1.5, 10)).tolist(),
+        learning_rate=[0.0001],
+        # learning_rate_decay=np.linspace(0.9, 1, 20).tolist(),
+        learning_rate_decay=[0.99],
     )
     keys = hyperparams.keys()
     hyperparam_list = [hyperparams[key] for key in keys]
@@ -126,7 +133,7 @@ if __name__ == '__main__':
     best_config = None
     best_accuracy = -1
 
-    with open('results.txt', 'a', 0) as flog:
+    with open(datetime.datetime.today().strftime("tune_nn_results/%Y-%m-%d_%H-%M.txt"), 'w', 0) as flog:
         flog.write('============= {} =============\n'.format(datetime.datetime.now()))
 
         all_configs = list(itertools.product(*hyperparam_list))
@@ -145,6 +152,8 @@ if __name__ == '__main__':
             print param
             accuracy = evaluate_nn_wrapped(X_train, y_train, X_val, y_val, tune_params=param)
             flog.write('accuracy: {}\n'.format(accuracy))
+
+            print 'accuracy: {}'.format(accuracy)
 
             if accuracy > best_accuracy:
                 best_config = config

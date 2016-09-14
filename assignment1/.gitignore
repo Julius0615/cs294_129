@@ -2,4 +2,4 @@
 *.pyc
 .env/*
 log.txt
-results.txt
+tune_nn_results/
