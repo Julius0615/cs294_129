@@ -93,15 +93,10 @@ def svm_loss_vectorized(W, X, y, reg):
   # loss.                                                                     #
   #############################################################################
   dW += np.dot(X.T, (margin > 0))
-  active_indices = np.sum((margin > 0), axis=1)
-  w_X = - X * np.sum((margin > 0), axis=1).reshape(-1, 1)
+  margin_active = (margin > 0).astype(float)
+  margin_active[np.arange(X.shape[0]), y] += -np.sum(margin_active, axis=1)
 
-  for i in xrange(y.shape[0]):
-      dW[:, y[i]] += w_X[i, :]
-  # t_dW = np.zeros_like(dW).T
-  # np.add.at(t_dW, y, w_X)
-  # dW += t_dW.T
-
+  dW = np.dot(X.T, margin_active)
   dW /= X.shape[0]
   dW += reg * W
   #############################################################################
