@@ -257,6 +257,7 @@ class FullyConnectedNet(object):
     affine_cache = []
     relu_cache = []
     bn_cache = []
+    dropout_cache = []
     out = X
     for i in xrange(self.num_layers):
       W = self.params['W{}'.format(i)]
@@ -268,8 +269,12 @@ class FullyConnectedNet(object):
         beta = self.params['beta{}'.format(i)]
         out, cache = batchnorm_forward(out, gamma, beta, self.bn_params[i])
         bn_cache.append(cache)
-      out, cache = relu_forward(out)
-      relu_cache.append(cache)
+      if i < self.num_layers - 1:
+        out, cache = relu_forward(out)
+        relu_cache.append(cache)
+        if self.use_dropout:
+          out, cache = dropout_forward(out, self.dropout_param)
+          dropout_cache.append(cache)
 
     scores = out
     ############################################################################
@@ -296,8 +301,12 @@ class FullyConnectedNet(object):
     ############################################################################
     loss, dout = softmax_loss(scores, y)
     for i in xrange(self.num_layers - 1, -1, -1):
-      cache = relu_cache[i]
-      dout = relu_backward(dout, cache)
+      if i < self.num_layers - 1:
+        if self.use_dropout:
+          cache = dropout_cache[i]
+          dout = dropout_backward(dout, cache)
+        cache = relu_cache[i]
+        dout = relu_backward(dout, cache)
       if self.use_batchnorm and i < self.num_layers - 1:
         cache = bn_cache[i]
         dout, dgamma, dbeta = batchnorm_backward_alt(dout, cache)
@@ -305,8 +314,8 @@ class FullyConnectedNet(object):
         grads['beta{}'.format(i)] = dbeta
       cache = affine_cache[i]
       dout, dw, db = affine_backward(dout, cache)
-      loss += 0.5 * np.sum(self.params['W{}'.format(i)] ** 2)
-      grads['W{}'.format(i)] = dw + self.params['W{}'.format(i)]
+      loss += 0.5 * self.reg * np.sum(self.params['W{}'.format(i)] ** 2)
+      grads['W{}'.format(i)] = dw + self.reg * self.params['W{}'.format(i)]
       grads['b{}'.format(i)] = db
     ############################################################################
     #                             END OF YOUR CODE                             #
