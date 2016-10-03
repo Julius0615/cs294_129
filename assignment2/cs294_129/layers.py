@@ -168,7 +168,15 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     # the momentum variable to update the running mean and running variance,    #
     # storing your result in the running_mean and running_var variables.        #
     #############################################################################
-    pass
+    mean = np.mean(x, axis=0, keepdims=True)
+    var = np.var(x, axis=0, keepdims=True)
+    std = np.sqrt(var + eps)
+    centered = x - mean
+    normalized = centered / std
+    out = normalized * gamma.reshape(1, -1)  + beta.reshape(1, -1)
+    running_mean = momentum * running_mean + (1 - momentum) * mean.flatten()
+    running_var = momentum * running_var + (1 - momentum) * var.flatten()
+    cache = (x, mean, var, eps, std, centered, normalized, gamma)
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -179,7 +187,11 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     # and shift the normalized data using gamma and beta. Store the result in   #
     # the out variable.                                                         #
     #############################################################################
-    pass
+    mean = running_mean.reshape(1, -1)
+    var = running_var.reshape(1, -1)
+    normalized = (x - mean) / np.sqrt(var + eps)
+    out = normalized * gamma.reshape(1, -1)  + beta.reshape(1, -1)
+    # cache = (x, mean, var, eps, normalized, gamma)
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -215,7 +227,25 @@ def batchnorm_backward(dout, cache):
   # TODO: Implement the backward pass for batch normalization. Store the      #
   # results in the dx, dgamma, and dbeta variables.                           #
   #############################################################################
-  pass
+  x, mean, var, eps, std, centered, normalized, gamma = cache
+  mean = mean.reshape(1, -1)
+  N, D = x.shape
+  dbeta = np.sum(dout, axis=0)
+  dgamma = np.sum(normalized * dout, axis=0)
+  dnormalized = gamma.reshape(1, -1) * dout
+
+  d_inv_std = np.sum(centered * dnormalized, axis=0, keepdims=True)
+  d_centered_x_1 = 1. / std * dnormalized
+  d_std = -1. / (var + eps) * d_inv_std
+  d_var = 1. / (2 * std) * d_std
+  d_square = 1. / N * np.ones_like(x) * d_var
+  d_centered_x_2 = 2. * centered * d_square
+  d_centered_x = d_centered_x_1 + d_centered_x_2
+  d_x_1 = np.ones_like(x) * d_centered_x
+  d_mean = -1. * np.sum(d_centered_x, axis=0, keepdims=True)
+  d_x_2 = 1.0/N * np.ones_like(x) * d_mean
+  dx = d_x_1 + d_x_2
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
