@@ -300,7 +300,7 @@ class FullyConnectedNet(object):
       dout = relu_backward(dout, cache)
       if self.use_batchnorm and i < self.num_layers - 1:
         cache = bn_cache[i]
-        dout, dgamma, dbeta = batchnorm_backward(dout, cache)
+        dout, dgamma, dbeta = batchnorm_backward_alt(dout, cache)
         grads['gamma{}'.format(i)] = dgamma
         grads['beta{}'.format(i)] = dbeta
       cache = affine_cache[i]
