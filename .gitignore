@@ -90,3 +90,6 @@ ENV/
 
 # OS X
 .DS_Store
+
+# Cloud 9
+.c9/
