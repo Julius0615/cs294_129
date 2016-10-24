@@ -135,7 +135,35 @@ class CaptioningRNN(object):
     # defined above to store loss and gradients; grads[k] should give the      #
     # gradients for self.params[k].                                            #
     ############################################################################
-    pass
+    
+    # Forward pass
+    h0, cache_h0 = affine_forward(features, W_proj, b_proj)
+    word_embeddings, cache_we = word_embedding_forward(captions_in, W_embed)
+    
+    if self.cell_type == 'rnn':
+      h_r, cache_r = rnn_forward(word_embeddings, h0, Wx, Wh, b)
+    else:
+      raise NotImplementedError('Cell type not supported!')
+    
+    affine_out, affine_cache = temporal_affine_forward(h_r, W_vocab, b_vocab)
+    
+    loss, d_loss = temporal_softmax_loss(affine_out, captions_out, mask)
+    
+    # Backward pass
+    d_h_r, grads['W_vocab'], grads['b_vocab'] = temporal_affine_backward(
+      d_loss, affine_cache
+    )
+    
+    if self.cell_type == 'rnn':
+      d_we, d_h0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(
+        d_h_r, cache_r
+      )
+    else:
+      raise NotImplementedError('Cell type not supported!')
+      
+    grads['W_embed'] = word_embedding_backward(d_we, cache_we)
+    _, grads['W_proj'], grads['b_proj'] = affine_backward(d_h0, cache_h0)
+    
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -197,7 +225,22 @@ class CaptioningRNN(object):
     # functions; you'll need to call rnn_step_forward or lstm_step_forward in #
     # a loop.                                                                 #
     ###########################################################################
-    pass
+    h, _ = affine_forward(features, W_proj, b_proj)
+    word_class = self._start * np.ones((N, 1), dtype=np.int32)
+    if self.cell_type == 'rnn':
+      for i in xrange(max_length):
+        word_embeddings, _ = word_embedding_forward(word_class, W_embed)
+        word_embeddings = np.squeeze(word_embeddings, axis=1)
+        h, _ = rnn_step_forward(word_embeddings, h, Wx, Wh, b)
+        affine_out, _ = temporal_affine_forward(
+          np.expand_dims(h, axis=1), W_vocab, b_vocab
+        )
+        word_class = np.argmax(affine_out, axis=2)
+        captions[:, i] = word_class.flatten()
+    else:
+      raise NotImplementedError('Cell type not supported!')
+      
+      
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
