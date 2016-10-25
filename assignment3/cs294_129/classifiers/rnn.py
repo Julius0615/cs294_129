@@ -142,6 +142,8 @@ class CaptioningRNN(object):
     
     if self.cell_type == 'rnn':
       h_r, cache_r = rnn_forward(word_embeddings, h0, Wx, Wh, b)
+    elif self.cell_type == 'lstm':
+      h_r, cache_r = lstm_forward(word_embeddings, h0, Wx, Wh, b)
     else:
       raise NotImplementedError('Cell type not supported!')
     
@@ -156,6 +158,10 @@ class CaptioningRNN(object):
     
     if self.cell_type == 'rnn':
       d_we, d_h0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(
+        d_h_r, cache_r
+      )
+    elif self.cell_type == 'lstm':
+      d_we, d_h0, grads['Wx'], grads['Wh'], grads['b'] = lstm_backward(
         d_h_r, cache_r
       )
     else:
@@ -237,9 +243,19 @@ class CaptioningRNN(object):
         )
         word_class = np.argmax(affine_out, axis=2)
         captions[:, i] = word_class.flatten()
+    elif self.cell_type == 'lstm':
+      c = np.zeros_like(h)
+      for i in xrange(max_length):
+        word_embeddings, _ = word_embedding_forward(word_class, W_embed)
+        word_embeddings = np.squeeze(word_embeddings, axis=1)
+        h, c, _ = lstm_step_forward(word_embeddings, h, c, Wx, Wh, b)
+        affine_out, _ = temporal_affine_forward(
+          np.expand_dims(h, axis=1), W_vocab, b_vocab
+        )
+        word_class = np.argmax(affine_out, axis=2)
+        captions[:, i] = word_class.flatten()
     else:
       raise NotImplementedError('Cell type not supported!')
-      
       
     ############################################################################
     #                             END OF YOUR CODE                             #
