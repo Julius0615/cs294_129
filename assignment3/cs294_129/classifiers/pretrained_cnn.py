@@ -122,7 +122,7 @@ class PretrainedCNN(object):
       array of shape (N, C, 64, 64).
     - start: The index of the layer to start from. start=0 starts from the first
       convolutional layer. Default is 0.
-    - end: The index of the layer to end at. start=11 ends at the last
+    - end: The index of the layer to end at. end=11 ends at the last
       fully-connected layer, returning class scores. Default is 11.
     - mode: The mode to use, either 'test' or 'train'. We need this because
       batch normalization behaves differently at training time and test time.
